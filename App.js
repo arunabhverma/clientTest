@@ -1,71 +1,75 @@
-import React, {useRef, useState} from 'react';
+import React, {useCallback, useRef, useState} from 'react';
 import {TouchableOpacity, View, Text, StyleSheet} from 'react-native';
 import {WebView} from 'react-native-webview';
 
+const script = (color) => `
+  polygonSeries.heatRules.push({
+      property: "fill",
+      target: polygonSeries.mapPolygons.template,
+      min: am4core.color("${color}"),
+      max: am4core.color("${color}"),
+  });
+
+  polygonSeries.data = [
+    {
+      id: "US-TX",
+      value: 0
+    }
+  ];
+  `;
+
+var mainScript = false;
+const scriptForGreen = script('#74B266');
+const scriptForRed = script('red');
+  
 const MyApp = () => {
   const webref = useRef();
-  const [state, setState] = useState({
-    stateName: '',
-    stateColor: '"#74B266"',
-  });
+  const [stateName, setStateName] = useState('');
+
+  const changeTexasColor = useCallback(() => {
+    mainScript = !mainScript;
+    if(mainScript === true){
+      webref.current.injectJavaScript(scriptForRed)
+    } else {
+      webref.current.injectJavaScript(scriptForGreen)
+    }
+  }, [])
 
   const MapView = `
   <html lang="en">
-
-<head>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-        }
-
-        #chartdiv {
-            width: 100%;
-            height: 100%;
-        }
-    </style>
-</head>
-
-<body>
-    <script src="https://www.amcharts.com/lib/4/core.js"></script>
-    <script src="https://www.amcharts.com/lib/4/maps.js"></script>
-    <script src="https://www.amcharts.com/lib/4/geodata/usaLow.js"></script>
-
-    <div id="chartdiv"></div>
-
-    <script>
-
-        var chart = am4core.create("chartdiv", am4maps.MapChart);
-        chart.geodata = am4geodata_usaLow;
-        chart.projection = new am4maps.projections.AlbersUsa();
-
-        var polygonSeries = chart.series.push(new am4maps.MapPolygonSeries());
-        polygonSeries.useGeodata = true;
-
-        polygonSeries.heatRules.push({
-            property: "fill",
-            target: polygonSeries.mapPolygons.template,
-            min: am4core.color(${ state.stateColor }),
-            max: am4core.color(${ state.stateColor }),
-        });
-
-        polygonSeries.data = [
-            {
-                id: "US-TX",
-                value: 0
+    <head>
+        <style>
+            #chartdiv {
+                width: 100%;
+                height: 100%;
             }
-        ];
+        </style>
+    </head>
 
-        var polygonTemplate = polygonSeries.mapPolygons.template;
-        polygonTemplate.fill = am4core.color("#74B266");
-        polygonTemplate.events.on("hit", function (ev) {
-            ev.target.dataItem.fill = am4core.color("red");
-            window.ReactNativeWebView.postMessage(ev.target.dataItem.dataContext.name);
-        })
-    </script>
+    <body>
+        <script src="https://www.amcharts.com/lib/4/core.js"></script>
+        <script src="https://www.amcharts.com/lib/4/maps.js"></script>
+        <script src="https://www.amcharts.com/lib/4/geodata/usaLow.js"></script>
 
-</body>
+        <div id="chartdiv"></div>
 
-</html>
+        <script>
+          var chart = am4core.create("chartdiv", am4maps.MapChart);
+          chart.geodata = am4geodata_usaLow;
+          chart.projection = new am4maps.projections.AlbersUsa();
+        
+          var polygonSeries = chart.series.push(new am4maps.MapPolygonSeries());
+          polygonSeries.useGeodata = true;
+        
+          var polygonTemplate = polygonSeries.mapPolygons.template;
+          polygonTemplate.fill = am4core.color("#74B266");
+          polygonTemplate.events.on("hit", function (ev) {
+              ev.target.dataItem.fill = am4core.color("red");
+              window.ReactNativeWebView.postMessage(ev.target.dataItem.dataContext.name);
+          })
+        </script>
+    </body>
+  </html>
   `;
 
   return (
@@ -79,7 +83,7 @@ const MyApp = () => {
         domStorageEnabled={true}
         onMessage={event => {
           if (webref) {
-            setState(prev => ({...prev, stateName: event?.nativeEvent?.data}));
+            setStateName(event?.nativeEvent?.data);
           }
         }}
         useWebKit
@@ -91,20 +95,14 @@ const MyApp = () => {
           <Text>Logs</Text>
           <View style={[styles.button, {width: '100%'}]}>
             <Text>
-              {state.stateName
-                ? `${state.stateName} is clicked`
+              {stateName
+                ? `${stateName} is clicked`
                 : 'Please Select any state'}
             </Text>
           </View>
         </View>
         <TouchableOpacity
-          onPress={() =>
-            setState(prev => ({
-              ...prev,
-              stateColor:
-                prev.stateColor === '"#74B266"' ? '"red"' : '"#74B266"',
-            }))
-          }
+          onPress={changeTexasColor}
           style={[styles.button, {width: 100}]}>
           <Text>CHANGE</Text>
         </TouchableOpacity>
